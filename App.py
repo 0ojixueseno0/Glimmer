@@ -30,39 +30,6 @@ import os
                    希望人没事 -- 0ojixueseno0
 '''
 
-# 滚动背景
-class GameBackground(object):
-  def __init__(self):
-    self.screen = SCREEN
-    self.bg1 =  pygame.transform.scale(pygame.image.load(BACKGROUND_LIST[1]).convert_alpha(),(1600,900))
-    self.bg2 = pygame.transform.flip(self.bg1,True,False)
-    self.bg1_rect = self.bg1.get_rect()
-    self.bg2_rect = self.bg2.get_rect()
-    self.x1 = 0
-    self.x2 = self.x1 + self.bg2_rect.width
-    # self.x1 = 1600 - self.bg1_rect.width
-    # self.x2 = self.x1 - self.bg2_rect.width
-  def action(self):
-    self.x1 = self.x1 - 1
-    self.x2 = self.x2 - 1
-    if self.x1+1600 <= 0:
-      self.x1 = self.x2 + self.bg1_rect.width
-    if self.x2+1600 <= 0:
-      self.x2 = self.x1 + self.bg2_rect.width
-    # if self.x1 >= 1600:
-    #     self.x1 = self.x2 - self.bg1_rect.width
-    # if self.x2 >= 1600:
-    #     self.x2 = self.x1 - self.bg2_rect.width
-
-  def draw(self):
-    self.screen.blit(self.bg1, (self.x1, 0))
-    self.screen.blit(self.bg2, (self.x2, 0))
-
-# 主要绘制
-class MainDraw(object):
-  def __init__(self):
-    self.uipart = 0
-
 # 资源文件
 class Assets(object):
   def __init__(self):
@@ -100,6 +67,12 @@ class Assets(object):
       pygame.image.load('assets/picture/heart.png').convert_alpha(),
       pygame.image.load('assets/picture/heart_half.png').convert_alpha()
     )
+    #音效
+    
+    self.sounds["bgm"] = pygame.mixer.Sound('assets/sounds/bgm.mp3')
+    self.sounds["jump"] = pygame.mixer.Sound('assets/sounds/jump.wav')
+    self.sounds["gameover"] = pygame.mixer.Sound('assets/sounds/gameover.mp3')
+    self.sounds["switch"] = pygame.mixer.Sound('assets/sounds/switch.mp3')
 
 # 配置文件
 class Config(object):
@@ -118,6 +91,109 @@ class Config(object):
     with open("./config.json",'w',encoding='utf-8') as f:
       f.write(json.dumps(self.config,indent=4,ensure_ascii=False))
 
+class Player(object):
+  def __init__(self,screen):
+    self.screen = screen
+    self.score = 0
+    self.health = 9
+
+# 滚动背景
+class GameBackground(object):
+  def __init__(self, screen):
+    self.screen = screen
+    self.bg1 =  pygame.transform.scale(
+      pygame.image.load(
+        self.screen.assets.background_list[random.randint(0,len(self.screen.assets.background_list)-1)]
+        ).convert_alpha(),(1600,900))
+    self.bg2 = pygame.transform.flip(self.bg1,True,False)
+    self.bg1_rect = self.bg1.get_rect()
+    self.bg2_rect = self.bg2.get_rect()
+    self.x1 = 0
+    self.x2 = self.x1 + self.bg2_rect.width
+
+  def action(self):
+    self.x1 = self.x1 - 1
+    self.x2 = self.x2 - 1
+    if self.x1+1600 <= 0:
+      self.x1 = self.x2 + self.bg1_rect.width
+    if self.x2+1600 <= 0:
+      self.x2 = self.x1 + self.bg2_rect.width
+
+  def draw(self):
+    self.action()
+    self.screen.scene.blit(self.bg1, (self.x1, 0))
+    self.screen.scene.blit(self.bg2, (self.x2, 0))
+
+# 处理各种动作
+class MainAction(object):
+  def __init__(self, screen):
+    self.screen = screen
+    
+    #TODO: rollbg
+  def Actions(self):
+    # if self.screen.mainDraw.uipart == 2:
+    #   self.screen.roolBG.action()
+    pass
+
+# 主要绘制
+class MainDraw(object):
+  def __init__(self, screen):
+    self.uipart = 0
+    self.screen = screen
+  
+  def method(value):
+    """
+    输入数字 倒序输出每位内容
+    """
+    result = []
+    while value:
+      value, r = divmod(value, 10)
+      result.append(r)
+    return result
+
+  def drawscore(self):
+    score = self.method(self.screen.player.score)
+    x = 1537
+    for v in score:
+      if v == 1:
+        x = x - 34 + 8
+      else:
+        x = x - 34
+      self.screen.scene.blit(self.screen.assets.images["NUM"][v], (x, 36))
+
+  def drawheart(self):
+    health = self.screen.player.health
+    if health > 0:
+      half = health % 2
+      full = health // 2
+      if full != 0:
+        for i in range(full):
+          self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][3], (40+i*67,28))
+      else:
+        i=-1
+      if half != 0:
+        self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][4], (40+(i+1)*67,28))
+  
+  def DrawUI(self):
+    if self.uipart <= 1:
+      self.screen.scene.blit(self.screen.assets.images["UI"][self.uipart], (0,0))
+    else:
+      self.screen.scene.fill((0,0,0))
+    if self.uipart == 1: # SettingMenu
+      if self.screen.config.config["BackgroundMusic"]:
+        self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][1], (356,234))
+      else:
+        self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][2], (303,234))
+      if self.screen.config.config["BackgroundSoundEffect"]:
+        self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][1], (356,367))
+      else:
+        self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][2], (303,367))
+    elif self.uipart == 2: # GamePart
+      self.screen.roolBG.draw()
+      self.screen.scene.blit(self.screen.assets.images["UI"][2], (0,0))
+      self.drawheart()
+      self.drawscore()
+
 # 主场景
 class MainScene(object):
   # 初始化主场景
@@ -126,18 +202,36 @@ class MainScene(object):
     self.size = (1600,900)
     # 场景对象
     self.scene = pygame.display.set_mode([self.size[0], self.size[1]])
+
+    pygame.init()
     # 窗口标题
     pygame.display.set_caption("Glimmer - 微光")
     # 窗口logo
     pygame.display.set_icon(pygame.image.load('assets/logo.png').convert_alpha())
+
+    self.fps = 120
+    self.fclock = pygame.time.Clock()
+
+    # pygame.mixer.init()
+
     #* 连接其他class
+    self.assets = Assets() # 资源文件
+    self.config = Config() # 配置文件
+    self.player = Player(self) # 玩家信息
+    self.roolBG = GameBackground(self) # 滚动背景
+    self.mainDraw = MainDraw(self) # 绘制
+    self.mainAction = MainAction(self) # 动作
+
+
 
   # 绘制
   def draw_elements(self):
+    self.mainDraw.DrawUI()
     pass
 
   # 动作
   def action_elements(self):
+    # self.mainAction.Actions()
     pass
 
    # 处理事件
@@ -150,7 +244,13 @@ class MainScene(object):
 
   # 主循环
   def run_loop(self):
-    pass
+    while True:
+      self.action_elements()
+      self.draw_elements()
+      self.handle_event()
+      self.detect_crash()
+      pygame.display.update()
+      self.fclock.tick(self.fps)
 
 # 程序入口
 if __name__ == "__main__":
