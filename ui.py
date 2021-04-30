@@ -12,6 +12,7 @@ f.close()
 size = width, height = (1600, 900)
 SCREEN = pygame.display.set_mode(size, 0, 32)
 pygame.display.set_caption("微光(ui) | Glimmer - 0ojixueseno0")
+pygame.display.set_icon(pygame.image.load('assets/logo.png').convert_alpha())
 
 HEALTH = 9
 
