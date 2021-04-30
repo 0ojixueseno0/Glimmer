@@ -1,6 +1,7 @@
 import pygame
 import sys
 import json
+import random
 #* here is ui part
 
 f = open("./config.json",encoding='utf-8')
@@ -52,6 +53,57 @@ def updateCONFIG():
   f.write(json.dumps(CONFIG,indent=4,ensure_ascii=False))
   f.close()
 
+def method(value):
+    #divmod()是内置函数，返回整商和余数组成的元组
+    #* 函数引用 https://www.cnblogs.com/Py00/p/9361056.html
+    result = []
+    while value:
+        value, r = divmod(value, 10)
+        result.append(r)
+    # result.reverse()
+    return result
+
+class GameBackground(object):
+  def __init__(self):
+    self.screen = SCREEN
+    self.bg1 =  pygame.transform.scale(pygame.image.load(BACKGROUND_LIST[1]).convert_alpha(),(1600,900))
+    self.bg2 = pygame.transform.flip(self.bg1,True,False)
+    self.bg1_rect = self.bg1.get_rect()
+    self.bg2_rect = self.bg2.get_rect()
+    self.x1 = 0
+    self.x2 = self.x1 + self.bg2_rect.width
+    # self.x1 = 1600 - self.bg1_rect.width
+    # self.x2 = self.x1 - self.bg2_rect.width
+  def action(self):
+    self.x1 = self.x1 - 1
+    self.x2 = self.x2 - 1
+    if self.x1+1600 <= 0:
+        self.x1 = self.x2 + self.bg1_rect.width
+    if self.x2+1600 <= 0:
+        self.x2 = self.x1 + self.bg2_rect.width
+    # if self.x1 >= 1600:
+    #     self.x1 = self.x2 - self.bg1_rect.width
+    # if self.x2 >= 1600:
+    #     self.x2 = self.x1 - self.bg2_rect.width
+
+  def draw(self):
+    self.screen.blit(self.bg1, (self.x1, 0))
+    self.screen.blit(self.bg2, (self.x2, 0))
+  
+
+bgroll = GameBackground()
+
+def drawscore(score):
+  score = method(score)
+  x=1537
+  for v in score:
+    if v==1:
+      x=x-34+8
+    else:
+      x=x-34
+    SCREEN.blit(IMAGES["NUM"][v], (x,36))
+    # print(x)
+
 def drawheart(health):
   half = health % 2
   full = health // 2
@@ -79,8 +131,11 @@ def drawui(uipart: int):
     else:
       SCREEN.blit(IMAGES["ELEMENTS"][2], (303,367))
   if uipart == 2:
+    bgroll.action()
+    bgroll.draw()
     SCREEN.blit(IMAGES["UI"][2], (0,0))
     drawheart(HEALTH)
+    drawscore(1234567890987654321)
     # pygame.draw.line(SCREEN, (0,0,0), (0,100),(1600,100),3)
     # pygame.draw.line(SCREEN, (0,0,0), (0,800),(1600,800),3)
     pass
@@ -120,7 +175,7 @@ def main():
         uipart = clickEvent(uipart,event.pos)
       if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
         HEALTH -= 1
-        print(HEALTH)
+        # print(HEALTH)
     drawui(uipart)
     pygame.display.update()
 
