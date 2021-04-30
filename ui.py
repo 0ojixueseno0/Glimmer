@@ -78,9 +78,9 @@ class GameBackground(object):
     self.x1 = self.x1 - 1
     self.x2 = self.x2 - 1
     if self.x1+1600 <= 0:
-        self.x1 = self.x2 + self.bg1_rect.width
+      self.x1 = self.x2 + self.bg1_rect.width
     if self.x2+1600 <= 0:
-        self.x2 = self.x1 + self.bg2_rect.width
+      self.x2 = self.x1 + self.bg2_rect.width
     # if self.x1 >= 1600:
     #     self.x1 = self.x2 - self.bg1_rect.width
     # if self.x2 >= 1600:
