@@ -97,6 +97,33 @@ class Player(object):
     self.score = 0
     self.health = 9
 
+# 点击事件判断
+class ClickEvent(object):
+  def __init__(self, screen):
+    self.screen = screen
+
+  def clickCheck(self,pos,x,y,w,h) -> bool:
+    return (x+w >= pos[0] >= x and y+h >= pos[1] >= y)
+
+  def LeftClick(self, pos):
+    if self.screen.mainDraw.uipart == 0: #* StartMenu
+      print(pos)
+      if self.clickCheck(pos, 600, 395, 400, 65):
+        self.screen.mainDraw.uipart = 2
+      if self.clickCheck(pos, 600, 500, 400, 65):
+        self.screen.mainDraw.uipart = 1
+      if self.clickCheck(pos, 600, 605, 400, 65):
+        pygame.quit()
+    if self.screen.mainDraw.uipart == 1: #* settingMenu
+      if self.clickCheck(pos, 47, 782, 190, 61):
+        self.screen.mainDraw.uipart = 0
+      if self.clickCheck(pos, 295, 230, 115, 53):
+        self.screen.config.config["BackgroundMusic"] = not self.screen.config.config["BackgroundMusic"]
+        self.screen.config.updateCONFIG()
+      if self.clickCheck(pos, 295, 363, 115, 53):
+        self.screen.config.config["BackgroundSoundEffect"] = not self.screen.config.config["BackgroundSoundEffect"]
+        self.screen.config.updateCONFIG()
+
 # 滚动背景
 class GameBackground(object):
   def __init__(self, screen):
@@ -120,7 +147,6 @@ class GameBackground(object):
       self.x2 = self.x1 + self.bg2_rect.width
 
   def draw(self):
-    self.action()
     self.screen.scene.blit(self.bg1, (self.x1, 0))
     self.screen.scene.blit(self.bg2, (self.x2, 0))
 
@@ -131,8 +157,8 @@ class MainAction(object):
     
     #TODO: rollbg
   def Actions(self):
-    # if self.screen.mainDraw.uipart == 2:
-    #   self.screen.roolBG.action()
+    if self.screen.mainDraw.uipart == 2:
+      self.screen.roolBG.action()
     pass
 
 # 主要绘制
@@ -141,7 +167,7 @@ class MainDraw(object):
     self.uipart = 0
     self.screen = screen
   
-  def method(value):
+  def method(self, value):
     """
     输入数字 倒序输出每位内容
     """
@@ -152,6 +178,8 @@ class MainDraw(object):
     return result
 
   def drawscore(self):
+    if self.screen.player.score == 0:
+      self.screen.scene.blit(self.screen.assets.images["NUM"][0], (1537, 36))
     score = self.method(self.screen.player.score)
     x = 1537
     for v in score:
@@ -188,7 +216,9 @@ class MainDraw(object):
         self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][1], (356,367))
       else:
         self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][2], (303,367))
-    elif self.uipart == 2: # GamePart
+    if self.uipart == 2: # GamePart
+      # self.screen.roolBG.action()
+      #TODO: draw ball
       self.screen.roolBG.draw()
       self.screen.scene.blit(self.screen.assets.images["UI"][2], (0,0))
       self.drawheart()
@@ -218,6 +248,7 @@ class MainScene(object):
     self.assets = Assets() # 资源文件
     self.config = Config() # 配置文件
     self.player = Player(self) # 玩家信息
+    self.clickEvent = ClickEvent(self)
     self.roolBG = GameBackground(self) # 滚动背景
     self.mainDraw = MainDraw(self) # 绘制
     self.mainAction = MainAction(self) # 动作
@@ -231,11 +262,17 @@ class MainScene(object):
 
   # 动作
   def action_elements(self):
-    # self.mainAction.Actions()
+    self.mainAction.Actions()
     pass
 
    # 处理事件
   def handle_event(self):
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+        pygame.quit()
+        sys.exit()
+      if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        self.clickEvent.LeftClick(event.pos)
     pass
 
   # 碰撞检测
