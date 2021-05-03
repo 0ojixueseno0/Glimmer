@@ -160,7 +160,7 @@ class Player(object):
   def Action(self):
     self.speed *= self.friction # 空气摩擦
     self.speed += self.gravity # 重力加速度
-    self.player.rect.y = self.speed
+    self.player.rect.y += self.speed #! 让它动!!!
     if self.player.rect.top < 100 or self.player.rect.bottom > self.screen.height - 100:
       if abs(self.speed) > 4:
         self.speed *= -0.3
