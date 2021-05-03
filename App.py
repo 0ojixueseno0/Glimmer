@@ -77,11 +77,13 @@ class Assets(object):
     )
     #音效
     
-    self.sounds["bgm"] = pygame.mixer.Sound('assets/sounds/bgm.mp3')
+    pygame.mixer.music.load('assets/sounds/bgm.mp3')
+    # self.sounds["bgm"] = pygame.mixer.music.load('assets/sounds/bgm.mp3')
     self.sounds["jump"] = pygame.mixer.Sound('assets/sounds/jump.wav')
     self.sounds["gameover"] = pygame.mixer.Sound('assets/sounds/gameover.mp3')
     self.sounds["switch"] = pygame.mixer.Sound('assets/sounds/switch.mp3')
     self.sounds["pickheart"] = pygame.mixer.Sound('assets/sounds/pickheart.ogg')
+    self.sounds["hurt"] = pygame.mixer.Sound('assets/sounds/hurt.mp3')
 
 # 配置文件
 class Config(object):
@@ -108,20 +110,72 @@ class GSprite(pygame.sprite.Sprite):
     self.rect = self.image.get_rect()
     self.speed = speed
 
-  # #X 属性
-  # def _getx(self): return self.rect.x
-  # def _setx(self,value): self.rect.x = value
-  # X = property(_getx,_setx)
-
-  # #Y 属性
-  # def _gety(self): return self.rect.y
-  # def _sety(self,value): self.rect.y = value
-  # Y = property(_gety,_sety)
-
-  #position 属性
   def _getpos(self): return self.rect.topleft
   def _setpos(self,pos): self.rect.topleft = pos
   position = property(_getpos,_setpos)
+
+class Barrier(object):
+  def __init__(self,screen):
+    #* 障碍物
+    self.screen = screen
+    self.spawntime = self.screen.fps * 1 # 生成频率 = 得分 // 生成周期
+    self._spawntime = self.spawntime
+
+    self.ground = True
+    self._groundlvl = 0
+    self._threshold = 20
+
+    #屏障组
+    self.barrier_group = pygame.sprite.Group()
+  
+  def spawn(self):
+    if self.ground and self._groundlvl <= self._threshold: # 在地面 权重不达标
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][random.randint(8,9)])
+      barrier.position = (1600,800-barrier.rect.height)
+      self.barrier_group.add(barrier)
+
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][random.randint(5,6)])
+      barrier.position = (1600,100)
+      self.barrier_group.add(barrier)
+
+      self._groundlvl += random.randint(0,5)
+    elif self.ground and self._groundlvl > self._threshold: # 在地面 权重达标
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][10])
+      barrier.position = (1600,800-barrier.rect.height)
+      self.barrier_group.add(barrier)
+      self.ground = not self.ground
+      self._groundlvl = 0
+      if self._threshold >= 5:
+        self._threshold -= 1
+        self.spawntime *= 1.08
+
+    elif not self.ground and self._groundlvl <= self._threshold: # 不在地面 权重不达标
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][random.randint(5,6)])
+      barrier.position = (1600,100)
+      self.barrier_group.add(barrier)
+
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][random.randint(8,9)])
+      barrier.position = (1600,800-barrier.rect.height)
+      self.barrier_group.add(barrier)
+
+      self._groundlvl += random.randint(0,5)
+    elif not self.ground and self._groundlvl > self._threshold: # 不在地面 权重达标
+      barrier = GSprite(self.screen.assets.images["ELEMENTS"][7])
+      barrier.position = (1600,100)
+      self.barrier_group.add(barrier)
+      self.ground = not self.ground
+      self._groundlvl = 0
+      if self._threshold >= 5:
+        self._threshold -= 1
+        self.screen.rollspeed += 1
+
+  def Move(self):
+    for barrier in self.barrier_group.sprites():
+      if barrier.rect.x + barrier.rect.width >= 0:
+        barrier.rect.x -= self.screen.rollspeed
+      elif barrier.rect.x + barrier.rect.width < 0:
+        barrier.kill()
+
 
 class Player(object):
   def __init__(self,screen):
@@ -130,11 +184,16 @@ class Player(object):
     self.score = 0                      # 初始得分
     self.health = 9                     # 初始血量
     self.onground = False               # 是否触地
-    self.gravity = 0.5                  # 重力
+    self.gravity = 0.7                  # 重力
     self.friction = 1                   # 摩擦力
     self.speed = 1                      # 重力速度
-    self.hurttime = self.screen.fps * 3 # 受伤后的无敌时间(s)
-    
+    self.hurttime = self.screen.fps * 1 # 受伤后的无敌时间(s)
+    self.bonus = 1                      # 每次奖励分数
+    self.bonustime = 10                 # 奖励周期(pertick)
+
+    self._bonustime = self.bonustime
+    self._hurttime = 0
+
     # 精灵组
     self.player_group = pygame.sprite.Group()
     # 玩家初始化
@@ -145,22 +204,34 @@ class Player(object):
 
   #TODO: voice
   def Jump(self):
-    print("Jump")
     if self.onground:
+      print("Jump")
+      if self.screen.config.config["BackgroundSoundEffect"]:
+        self.screen.assets.sounds["jump"].play()
       self.onground = False
       self.speed = -32 * self.gravity
   
   def Switch(self):
-    print("Switch")
     if self.onground:
+      print("Switch")
+      if self.screen.config.config["BackgroundSoundEffect"]:
+        self.screen.assets.sounds["switch"].play()
       self.onground = False
       self.gravity *= -1
+  
+  def Damage(self):
+    if self._hurttime == 0:
+      if self.screen.config.config["BackgroundSoundEffect"]:
+        self.screen.assets.sounds["hurt"].play()
+      self._hurttime = self.hurttime
+      self.health -= 1
 
-  # 重力 摩擦力计算
+
   def Action(self):
     self.speed *= self.friction # 空气摩擦
     self.speed += self.gravity # 重力加速度
     self.player.rect.y += self.speed #! 让它动!!!
+    # 刹车
     if self.player.rect.top < 100 or self.player.rect.bottom > self.screen.height - 100:
       if abs(self.speed) > 4:
         self.speed *= -0.3
@@ -168,8 +239,28 @@ class Player(object):
         self.speed = 0
     self.player.rect.top = min(max(self.player.rect.top,100),self.screen.height-100)
     self.player.rect.bottom = min(max(self.player.rect.bottom,100), self.screen.height-100)
+    if self.health == 0:
+      self.screen.mainDraw.uipart = 3
+      if self.screen.config.config["BackgroundMusic"]:
+        pygame.mixer.music.stop()
+      if self.screen.config.config["BackgroundSoundEffect"]:
+        self.screen.assets.sounds["gameover"].play()
+      self.player.kill()
+      print("游戏结束：得分",self.score)
+    
+    # 落地判定
     if self.speed == 0:
       self.onground = True
+    
+    # 得分判定
+    if self._bonustime == 0:
+      self._bonustime = self.bonustime
+      self.score += self.bonus
+    self._bonustime -= 1
+    
+    # 受伤无敌时间
+    if self._hurttime != 0:
+      self._hurttime -= 1
 
 
 # 点击事件判断
@@ -181,10 +272,11 @@ class ClickEvent(object):
     return (x+w >= pos[0] >= x and y+h >= pos[1] >= y)
 
   def LeftClick(self, pos):
+    print(pos)
     if self.screen.mainDraw.uipart == 0: #* StartMenu
-      print(pos)
       if self.clickCheck(pos, 600, 395, 400, 65):
         self.screen.mainDraw.uipart = 2
+        self.startgame()
       if self.clickCheck(pos, 600, 500, 400, 65):
         self.screen.mainDraw.uipart = 1
       if self.clickCheck(pos, 600, 605, 400, 65):
@@ -198,6 +290,19 @@ class ClickEvent(object):
       if self.clickCheck(pos, 295, 363, 115, 53):
         self.screen.config.config["BackgroundSoundEffect"] = not self.screen.config.config["BackgroundSoundEffect"]
         self.screen.config.updateCONFIG()
+    
+    if self.screen.mainDraw.uipart == 3: #* gameover
+      if self.clickCheck(pos, 579, 426, 596, 74):
+        self.screen.mainDraw.uipart = 2
+        self.startgame()
+      if self.clickCheck(pos, 579, 529, 596, 74):
+        pygame.quit()
+  
+  def startgame(self):
+    self.screen.player = Player(self.screen)
+    self.screen.barrier = Barrier(self.screen)
+    if self.screen.config.config["BackgroundMusic"]:
+      pygame.mixer.music.play()
 
 # 滚动背景
 class GameBackground(object):
@@ -214,8 +319,8 @@ class GameBackground(object):
     self.x2 = self.x1 + self.bg2_rect.width
 
   def action(self):
-    self.x1 = self.x1 - 1
-    self.x2 = self.x2 - 1
+    self.x1 -= self.screen.rollspeed
+    self.x2 -= self.screen.rollspeed
     if self.x1+1600 <= 0:
       self.x1 = self.x2 + self.bg1_rect.width
     if self.x2+1600 <= 0:
@@ -237,6 +342,13 @@ class MainAction(object):
       #* 玩家数值
       self.screen.player.Action()
       
+      self.screen.barrier.Move()
+
+      if self.screen.barrier._spawntime <= 0:
+        self.screen.barrier.spawn()
+        self.screen.barrier._spawntime = self.screen.barrier.spawntime
+      else:
+        self.screen.barrier._spawntime -= 1
     pass
 
 # 主要绘制
@@ -257,7 +369,7 @@ class MainDraw(object):
 
   def drawscore(self):
     if self.screen.player.score == 0:
-      self.screen.scene.blit(self.screen.assets.images["NUM"][0], (1537, 36))
+      self.screen.scene.blit(self.screen.assets.images["NUM"][0], (1503, 36))
     score = self.method(self.screen.player.score)
     x = 1537
     for v in score:
@@ -265,7 +377,7 @@ class MainDraw(object):
         x = x - 34 + 8
       else:
         x = x - 34
-      self.screen.scene.blit(self.screen.assets.images["NUM"][v], (x, 36))
+      self.screen.scene.blit(self.screen.assets.images["NUM"][int(v)], (x, 36))
 
   def drawheart(self):
     health = self.screen.player.health
@@ -296,13 +408,15 @@ class MainDraw(object):
         self.screen.scene.blit(self.screen.assets.images["ELEMENTS"][2], (303,367))
     if self.uipart == 2: # GamePart
       # self.screen.roolBG.action()
-      #TODO: draw ball
       self.screen.roolBG.draw()
       self.screen.scene.blit(self.screen.assets.images["UI"][2], (0,0))
       self.drawheart()
       self.drawscore()
-      # self.screen.player.player_group.draw(self.screen.scene)
-      self.screen.scene.blit(self.screen.player.player.image, self.screen.player.player.rect)
+      self.screen.player.player_group.draw(self.screen.scene)
+      self.screen.barrier.barrier_group.draw(self.screen.scene)
+      # self.screen.scene.blit(self.screen.player.player.image, self.screen.player.player.rect)
+    if self.uipart == 3:
+      self.screen.scene.blit(self.screen.assets.images["UI"][3], (0,0))
 
 # 主场景
 class MainScene(object):
@@ -326,13 +440,15 @@ class MainScene(object):
     # 调试模式
     self.debug = False
 
+    self.rollspeed = 4
+
     # pygame.mixer.init()
 
     #* 连接其他class
     self.assets = Assets()              # 资源文件
     self.config = Config()              # 配置文件
     # self.gsprite = GSprite(self)
-    self.player = Player(self)          # 玩家信息
+    # self.player = Player(self)          # 玩家信息
     self.clickEvent = ClickEvent(self)  # 点击事件
     self.roolBG = GameBackground(self)  # 滚动背景
     self.mainDraw = MainDraw(self)      # 绘制
@@ -370,6 +486,9 @@ class MainScene(object):
 
   # 碰撞检测
   def detect_crash(self):
+    if self.mainDraw.uipart == 2:
+      if pygame.sprite.spritecollide(self.player.player, self.barrier.barrier_group, False):
+        self.player.Damage()
     pass
 
   # 主循环
